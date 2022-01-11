@@ -12,7 +12,6 @@ from telethon.tl.functions.messages import (
 import os
 
 bot_token = os.environ["FUMGAME_TOKENBOT"]
-# +989399795204
 api_id = os.environ["0939***5204_apiID"]
 api_hash = os.environ["0939***5204_apiHASH"]
 bot = TelegramClient('bot', api_id, api_hash).start(bot_token=bot_token)
