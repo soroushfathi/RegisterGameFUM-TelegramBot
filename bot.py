@@ -8,6 +8,7 @@ from telethon.tl.functions.messages import (
     GetInlineBotResultsRequest,
     SendInlineBotResultRequest,
     SetInlineBotResultsRequest,
+    StartBotRequest,
 )
 import os
 
@@ -16,7 +17,7 @@ api_id = os.environ["0939***5204_apiID"]
 api_hash = os.environ["0939***5204_apiHASH"]
 bot = TelegramClient('bot', api_id, api_hash).start(bot_token=bot_token)
 
-questions = {
+questionans = {
     'first': 1,
     'second': 2,
 }
@@ -29,13 +30,41 @@ class Team:
         self.players = players
         self.name = name
         self.score = 0
+        self.level = 0
         self.chelp = 0
+
+    def next_level(self):
+        self.level += 1
 
 
 class Player:
     def __init__(self, username, pid):
         self.username = username
         self.pid = pid
+        self.currans = 0
+
+
+class Game:
+    def level1(self):
+        pass
+
+    def level2(self):
+        pass
+
+    def level3(self):
+        pass
+
+    def level4(self):
+        pass
+
+    def level5(self):
+        pass
+
+    def level6(self):
+        pass
+
+    def level7(self):
+        pass
 
 
 @bot.on(events.CallbackQuery)
@@ -78,9 +107,40 @@ async def handler(event):
         await event.answer('your answer is: {}'.format(answer), alert=True)
 
 
-@bot.on(events.NewMessage(pattern='/start'))
+@bot.on(events.NewMessage(pattern='/start$'))
 async def start(event):
+    print(event)
+    await event.respond('Welcome', buttons=[
+        [
+            Button.text('راهنمایی🆘', resize=True, single_use=True),
+            Button.text('ایجاد تیم👥', resize=True, single_use=True),
+        ], [
+            Button.request_phone('Send phone'),
+            Button.request_location('Send location')
+        ]])
+
+    markup = bot.build_reply_markup(Button.inline('hi'))
+    await bot.send_message('Thiisiskorvo', 'click me', buttons=markup)
     await event.respond('Hi!')
+    # result = client(StartBotRequest(
+    #     bot='username',
+    #     peer='username',
+    #     start_param='some string here'
+    # ))
+    # print(result.stringify())
+
+
+@bot.on(events.NewMessage(pattern='راهنمایی🆘'))
+async def giudness(event):
+    await event.respond('این یک راهنمایی است')
+
+
+@bot.on(events.NewMessage(pattern='ایجاد تیم👥'))
+async def giudness(event):
+    await event.respond('این یک ایجاد تیم است')
+
+
+async def answer():
     buttons = [
         [
             Button.inline('1', b'1'),
