@@ -4,6 +4,13 @@ from telethon import (
     events,
     Button,
 )
+from telethon.sync import TelegramClient
+from telethon import functions, types
+from telethon.tl.types import (
+    PeerChannel,
+    PeerUser,
+    PeerChat,
+)
 from telethon.tl.functions.messages import (
     GetInlineBotResultsRequest,
     SendInlineBotResultRequest,
@@ -17,10 +24,7 @@ api_id = os.environ["0939***5204_apiID"]
 api_hash = os.environ["0939***5204_apiHASH"]
 bot = TelegramClient('bot', api_id, api_hash).start(bot_token=bot_token)
 
-questionans = {
-    'first': 1,
-    'second': 2,
-}
+
 teams = []
 players = []
 
@@ -113,10 +117,10 @@ async def start(event):
     await event.respond('Welcome', buttons=[
         [
             Button.text('راهنمایی🆘', resize=True, single_use=True),
-            Button.text('ایجاد تیم👥', resize=True, single_use=True),
+            Button.text('شرکت در مسابقه👥', resize=True, single_use=True),
         ], [
+            Button.text('ایجاد مسابقه🎪', resize=True, single_use=True),
             Button.request_phone('Send phone'),
-            Button.request_location('Send location')
         ]])
 
     markup = bot.build_reply_markup(Button.inline('hi'))
@@ -136,8 +140,12 @@ async def giudness(event):
 
 
 @bot.on(events.NewMessage(pattern='ایجاد تیم👥'))
-async def giudness(event):
-    await event.respond('این یک ایجاد تیم است')
+async def CreateTeam(event):
+    chat = PeerChat((await event.message.get_chat())).chat_id
+    async with bot.conversation(chat) as conv:
+        await conv.send_message('نام تیم خود را وارد کنید:')
+        teamname = await conv.get_response()
+        print(teamname)
 
 
 async def answer():
