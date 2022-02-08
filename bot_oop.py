@@ -104,8 +104,9 @@ async def handler(event):
     elif event.data == b'check':
         await event.answer('your answer is: {}'.format(ans), alert=True)
 
+    sender = await event.get_sender()
     if re.match(r'^accept [0-9]{3,}', event.data.decode("utf-8")):
-        sender = await event.get_sender()
+        print(event)
         pid = int(event.data.decode("utf-8").split()[1])
         team = find_team(pid)
         for p in team.players:
@@ -114,20 +115,18 @@ async def handler(event):
                 players.append(p)
                 break
         await bot.send_message(pid, messages['accepted_player'].format(sender.first_name))
-        await event.answer('عضویت {} تایید شد')
-        print(team)
-        for p in team.players:
-            print(p)
+        await bot.edit_message(sender, event.original_update.msg_id, 'عضویت {} تایید شد'.format(sender.first_name))
+        await event.answer('عضویت  تایید شد')
+
     elif re.match(r'^ignore [0-9]{3,}', event.data.decode("utf-8")):
         await bot.send_message(pid, messages['ignored_player'])
+        await bot.edit_message(sender, event.original_update.msg_id, 'عضویت {} لغو شد'.format(sender.first_name))
+        await event.answer('عدم تایید')
         team = find_team(pid)
         for p in team.players:
             if p.cid == pid:
                 team.players.remove(p)
                 break
-        print(team)
-        for p in team.players:
-            print(p)
 
 
 @bot.on(events.NewMessage)
