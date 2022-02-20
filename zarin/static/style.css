@@ -1,0 +1,60 @@
+/*      Github.com/Rasooll      */
+
+body {
+    direction: rtl;
+    text-align: right;
+    background: #e4e4e4;
+    color: #333;
+    font-family: 'Vazir', Tahoma;
+}
+footer{
+    color: #666;
+    text-align: left;
+    margin: .25em;
+    font-size: .85em;
+}
+footer a{
+    color: #666;
+}
+footer a:hover {
+    color: rgb(199, 0, 0);
+    text-decoration: none;
+}
+@media (min-width: 768px) {
+    .container#indexform {
+        margin-top: 5em;
+    }
+    #zptrust {
+        text-align: left;
+    }
+}
+
+@media (max-width: 768px) {
+    #fbtn{
+        text-align: center;
+    }
+    #fbtn div {
+        margin: .5em;
+    }
+}
+
+.container#indexform {
+    max-width: 43.75em;
+}
+#indexform .box {
+    background: #FFFFFF;
+    border: 1px solid rgb(200, 200, 200);
+    border-radius: 6px;
+    padding: 2em 3em;
+    padding-bottom: .75em;
+}
+#indexform .box form .row{
+    margin-bottom: 1.25em;
+}
+#indexform .box form .row label{
+    margin-top: 7px;
+}
+.successtitle {
+    color: green;
+    font-weight: bold;
+}
