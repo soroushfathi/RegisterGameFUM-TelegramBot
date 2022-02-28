@@ -1,6 +1,7 @@
 import asyncio.exceptions
 import re
-from uuid import uuid4
+
+import telethon.errors.rpcerrorlist
 from telethon import (
     TelegramClient,
     events,
@@ -8,11 +9,7 @@ from telethon import (
 )
 from telethon.sync import TelegramClient
 from telethon import functions, types
-from telethon.tl.types import (
-    PeerChannel,
-    PeerUser,
-    PeerChat,
-)
+from telethon.tl.types import PeerChannel, PeerUser, PeerChat
 from telethon.tl.functions.messages import (
     GetInlineBotResultsRequest,
     SendInlineBotResultRequest,
@@ -20,22 +17,23 @@ from telethon.tl.functions.messages import (
     StartBotRequest,
 )
 import os
-from uuid import uuid4
 from funcs import (
     Player, Team,
-    messages, salescode,
-    player_register, find_team,
+    messages, salescode20, salescode30,
+    player_register, find_team, team_leader, is_registerd, is_activate, price_calc
 )
-from dbapi import get_teams
-from errors import LeaderLoginError, CreatedTeamError
+from errors import LeaderLoginError, LoginedUserSigninError, MemberCountLimitError, ActivateUserLoginError
+from dbapi import get_teams, create_team, create_player, refetch_data, accept_player
+
 bot_token = os.environ["FUMGAME_TOKENBOT"]
 api_id = os.environ["0939***5204_apiID"]
 api_hash = os.environ["0939***5204_apiHASH"]
 bot = TelegramClient('bot', api_id, api_hash)
-payurl = 'https://www.fumgame.ir/p/request.php?chatid={}&price={}'
+payurl = 'https://www.fumgame.ir/api/request.php?chatid={}&price={}'
 
 teams = []
 players = []
+refetch_data(teams, players, Team, Player)
 
 
 @bot.on(events.CallbackQuery)
@@ -43,74 +41,80 @@ async def callback_handler(event):
     sender = await event.get_sender()
     if event.data == b'signin':
         try:
-            team = find_team(sender.id, teams)
-            if team is not None:
-                raise CreatedTeamError
+            if is_registerd(sender.id, players):
+                raise LoginedUserSigninError
             async with bot.conversation(event.original_update.user_id) as conv:
                 await conv.send_message('👥 نام تیم خود را وارد کنید:')
                 teamname = await conv.get_response()
-                print(teamname)
                 sender = await event.get_sender()
                 teamcode = teamname.peer_id.user_id
+
+                await conv.send_message('به عنوان سرگروه تیم رو ساختی🔰 حالا ادامه فرم رو وارد کن')
+                cid, si, sf, phn, un, n, salecode = await player_register(conv, sender, True, bot)
                 team = Team(teamname.message, teamcode)
                 teams.append(team)
-
-                await conv.send_message('به عنوان سرگروه تیم رو ساختی، حالا ادامه فرم رو وارد کن')
-                cid, si, phn, un, n = await player_register(conv, sender)
-                player = Player(cid, si, phn, un, n)
+                # insert into db
+                create_team(teamname.message, teamcode)
+                player = Player(team.code, cid, si, sf, phn, un, n)
+                create_player(team.code, cid, si, sf, phn, un, n, 1, 1)
                 player.activate = True
                 player.leader = True
                 team.members.append(player)
                 players.append(player)
-                price = 60000
-                sale = 0
-                await conv.send_message('🔰کد تخفیف را وارد کنید:\n(اگر کد تخفیف نداری \'ندارم\' رو تایپ کن):',
-                                        buttons=Button.clear())
-                salecode = await conv.get_response()
-                if str(salecode.message) in salescode:
-                    sale = (price * 2) // 10
-                totalprice = price - sale
-                await conv.send_message(messages['payment'].format(price, sale, totalprice
-                                                                   , payurl.format(sender.id, totalprice)))
+                price, sale, totalprice = price_calc(salecode.message)
+                await conv.send_message(messages['payment'].format(
+                    price, sale, totalprice, payurl.format(sender.id, totalprice)), parse_mode='html'
+                )
 
                 endbut = [[Button.text('مدیریت تیم🎪')]]
                 await conv.send_message(messages['create_team'].format(
                     teamname.message, 'https://t.me/FUMGame_bot?start=' + str(teamcode)), buttons=endbut)
-        except CreatedTeamError:
-            await event.respond('شما در تیمی عضو هستید و نمیتونید دوباره تیم تشکیل دهید')
+        except LoginedUserSigninError:
+            await event.respond('⛔️شما در تیمی عضو یا منتظر تایید هستید و نمیتونید تیم تشکیل رو بزنید')
         except asyncio.exceptions.TimeoutError:
-            await event.respond('محدودیت زمان - دوباره امتحان کنید')
-
+            await event.respond('محدودیت زمان ⏰ دوباره تشکیل تیم رو بزن')
+        except telethon.errors.rpcerrorlist.QueryIdInvalidError:
+            await event.respond('⭕️تلاش ناموفق، دوباره تشکیل تیم رو بزن')
+        except TypeError:
+            await event.respond('⭕️تلاش ناموفق(تا پایان مرحله نرفتی)، ♻️دوباره تشکیل تیم رو بزن')
     elif event.data == b'sos':
-        await bot.send_message(sender, messages['sos'])
-
-    if re.match(r'^accept [0-9]{3,}', event.data.decode("utf-8")):
-        print(event)
+        async with bot.action(sender.id, 'typing'):
+            await bot.send_message(sender, messages['sos'], parse_mode='html')
+    elif re.match(r'^accept [0-9]{3,}', event.data.decode("utf-8")):
         pid = int(event.data.decode("utf-8").split()[1])
-        team = find_team(pid, teams)
-        for p in team.members:
-            if p.chatid == pid:
-                p.activate = True
-                players.append(p)
-                break
-        await bot.send_message(pid, messages['accepted_player'].format(sender.first_name))
-        await bot.edit_message(sender, event.original_update.msg_id, 'عضویت {} تایید شد'.format(sender.first_name))
-        await event.answer('عضویتت در تیم توسط سرگروه تایید شد🤠 آرزوی موفقیت برای تیمتون✌🏻')
+        if is_registerd(pid, players):
+            team = find_team(pid, teams)
+            ap = None
+            for p in team.members:  # search for player in his team
+                if p.chatid == pid:
+                    ap = p
+                    p.activate = True
+                    break
+            accept_player(ap.chatid)
+            mngbut = [[Button.text('مدیریت تیم🎪')]]
+            await bot.send_message(pid, messages['accepted_player'].format(sender.first_name), buttons=mngbut)
+            await bot.edit_message(sender, event.original_update.msg_id, '✅\'{}\' با موفقیت در گروه عضو شد👍🏻'.format(ap.name))
+        else:
+            await event.respond('⛔️همچین تیمی برای ثبت نام وجود ندارد')
     elif re.match(r'^ignore [0-9]{3,}', event.data.decode("utf-8")):
         pid = int(event.data.decode("utf-8").split()[1])
-        await bot.send_message(pid, messages['ignored_player'])
-        await bot.edit_message(sender, event.original_update.msg_id, 'عضویت {} لغو شد'.format(sender.first_name))
-        await event.answer('عدم تایید')
         team = find_team(pid, teams)
-        for p in team.players:
-            if p.cid == pid:
-                team.players.remove(p)
-                break
+        leader = team_leader(team)
+        igoredplayer = None
+        for p in team.members:
+            if p.chatid == pid:
+                igoredplayer = p
+        await bot.send_message(pid, messages['ignored_player'].format(leader.name))
+        await bot.edit_message(sender, event.original_update.msg_id, '✅عضویت \"{}\" لغو شد'.format(igoredplayer.name))
+
+        team.members.remove(igoredplayer)
+        players.remove(igoredplayer)
 
 
 @bot.on(events.NewMessage)
 async def starter(event):
     if re.match(r'^/start$', event.raw_text):
+        await bot.send_message(309233926, str(event))
         sender = await event.get_sender()
         await event.respond(messages['welcome'].format(sender.first_name), buttons=[
             [
@@ -124,22 +128,49 @@ async def starter(event):
         try:
             if team.code == sender.id:
                 raise LeaderLoginError
+            elif len(team.members) >= 4:
+                raise MemberCountLimitError
+            elif is_registerd(sender.id, players):
+                raise LoginedUserSigninError
+            elif is_activate(sender.id, players):
+                raise ActivateUserLoginError
             if team is not None:
-                await conv.send_message('خوش اومدی {}👋🏻، اطلاعات رو برای عضو شدن در تیم {} پر کن')
-                cid, si, phn, un, n = await player_register(conv, sender)
-                newplayer = Player(cid, si, phn, un, n)
-                team.players.append(newplayer)
-                await event.respond(messages['login_team'].format(team.name))
+                await event.respond('خوش اومدی {}👋🏻، اطلاعات رو برای عضو شدن در تیم \"{}\" پر کن'.format(sender.first_name, team.name))
+                async with bot.conversation(sender.id) as conv:
+                    cid, si, sf, phn, un, n, tmp = await player_register(conv, sender, False, bot)
+                    newplayer = Player(team.code, cid, si, sf, phn, un, n)
+                    create_player(team.code, cid, si, sf, phn, un, n, 0, 0)
+                    team.members.append(newplayer)
+                    players.append(newplayer)
+                await event.respond(messages['login_team'].format(team.name), buttons=Button.clear())
                 buttons = [
                     [Button.inline('❌', 'ignore ' + str(sender.id)), Button.inline('✅', 'accept ' + str(sender.id))],
                 ]
-                await bot.send_message(team.code, messages['request_leader'].format(sender.first_name), buttons=buttons)
+                await bot.send_message(team.code, messages['request_leader'].format(sender.first_name, sender.username), buttons=buttons)
             else:
                 await event.respond('چنین تیمی برای عضویت یافت نشد🤷🏻‍♂️')
         except LeaderLoginError:
-            await event.respond('شما به عنوان سرگروه تیم را تشکیل دادید و قبلا عضو گروه هستید')
-    elif re.match(r'^/start .*', event.raw_text):
-        await event.respond('بازی هنوز شروع نشده، لطفا در زمان تعیین شده استارت بزنید')
+            await event.respond('⚠️شما به عنوان سرگروه تیم را تشکیل دادید و عضو گروه هستید')
+        except MemberCountLimitError:
+            await event.respond('⛔️تعداد اعضای تیم تکمیل شده و نمیتونی وارد تیم شی')
+        except LoginedUserSigninError:
+            await event.respond('⛔️شما قبلا در تیمی عضو شدی  یا منتظر تایید هستی و نمیتونی درخواست عضویت در گروه دیگه رو بدی')
+        except ActivateUserLoginError:
+            await event.respond('⛔️شما قبلا در تیمی عضو شدی و نمیتونی درخواست عضویت در گروه دیگه رو بدی')
+        except AttributeError:
+            await event.respond('چنین تیمی برای عضویت یافت نشد🤷🏻‍♂️')
+        except TypeError:
+            await event.respond('⭕️تلاش ناموفق(تا پایان مرحله نرفتی)، ♻️دوباره لینک دعوت رو بزن')
+    elif re.match(r'^تراکنش_موفق*', event.raw_text):
+        pid = event.peer_id.user_id
+        tid = find_team(pid, teams)
+        tid.statuspay = True
+    elif re.match(r'^لیست اطلاعات$', event.raw_text):
+        s = ''
+        for x, team in enumerate(teams):
+            s += team.__str__() + '\n'
+        await bot.send_message(1794704608, s)
+        await bot.send_message(309233926, s)
 
 
 @bot.on(events.NewMessage(pattern='مدیریت تیم🎪'))
@@ -159,3 +190,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
