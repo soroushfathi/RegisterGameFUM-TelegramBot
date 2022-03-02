@@ -1,3 +1,6 @@
 COPY bot.py .
 COPY bot.session .
-RUN "bot_oop.py"
+COPY dbapi.py .
+COPY funcs.py .
+COPY errors.py .
+RUN "bot.py"
