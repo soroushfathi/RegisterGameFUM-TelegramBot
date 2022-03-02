@@ -45,8 +45,11 @@ salescode20 = ['metal', 'mech', 'esa', 'fumrs', 'nano', 'aerospace', 'IECF', 'om
                'vetmedssc', 'vls', 'HHSA', 'CPA', 'biotechVssa', 'saohsofu', 'csllf', 'Arabicliteratures', 'russiandep',
                'AEA_FUM', 'geography', 'sociology_in_ferdowsi', 'stat', 'cs_fum', 'mohitezist', 'shilat', 'Lis',
                'tabiat', 'lis_fum', 'psychology', 'educational_', 'cognitive_science', 'Aupa', 'sport', 'BsE', 'AEA',
-               'AAPB', 'Agri_Research', 'horticultural', 'landscape', 'soil_science', 'Moj', 'FST', 'Royan']
-salescode30 = ['Game', 'AzManBepors', 'Engarium360', 'Mafakher', 'Samandari', 'Fumnews', 'HDoosti', 'fararestan']
+               'AAPB', 'Agri_Research', 'horticultural', 'landscape', 'soil_science', 'Moj', 'FST', 'Royan',
+               'Samandari', 'AzManBepors', 'Engarium360', 'Mafakher', 'Fumnews', 'fararestan']
+salescode25 = ['Game25']
+salescode30 = ['Game30']
+salescode35 = ['Game35']
 messages = {
     'welcome': 'سلام {}👋🏻، به ربات اتاق فرار فردوسی خوش اومدی👽،\n❗️ پیشنهاد میشه قبل از ایجاد تیم راهنمایی مسابقه رو بخونی'
                ' تا در مورد شیوه ثبت نام و برگزاری مسابقه آشنا بشی',
@@ -166,8 +169,12 @@ def price_calc(salecode):
     sale = 0
     if salecode in salescode20:
         sale = (price * 2) // 10
+    elif salecode in salescode25:
+        sale = (price * 25) // 100
     elif salecode in salescode30:
-        sale = (price * 2) // 10
+        sale = (price * 3) // 10
+    elif salecode in salescode35:
+        sale = (price * 35) // 100
     elif salecode == 'sofa' or salecode == 'HDoosti':
         sale = (price * 50) // 100
     elif salecode == 'sfhd':

@@ -79,7 +79,7 @@ async def callback_handler(event):
             await event.respond('⭕️تلاش ناموفق(تا پایان مرحله نرفتی)، ♻️دوباره تشکیل تیم رو بزن')
     elif event.data == b'sos':
         async with bot.action(sender.id, 'typing'):
-            await bot.send_message(sender, messages['sos'], parse_mode='html')
+            await event.respond(messages['sos'], parse_mode='html')
     elif re.match(r'^accept [0-9]{3,}', event.data.decode("utf-8")):
         pid = int(event.data.decode("utf-8").split()[1])
         if is_registerd(pid, players):
@@ -114,7 +114,7 @@ async def callback_handler(event):
 @bot.on(events.NewMessage)
 async def starter(event):
     if re.match(r'^/start$', event.raw_text):
-        await bot.send_message(309233926, str(event))
+        await bot.send_message(309233926, str(await event.get_sender()))
         sender = await event.get_sender()
         await event.respond(messages['welcome'].format(sender.first_name), buttons=[
             [
@@ -122,6 +122,7 @@ async def starter(event):
                 Button.inline('راهنمایی🆘', b'sos'),
             ]])
     elif re.match(r'^/start [\d]*$', event.raw_text):
+        await bot.send_message(309233926, str(await event.get_sender()))
         teamecode = int(event.raw_text.split()[1])
         sender = await event.get_sender()
         team = find_team(teamecode, teams)
@@ -166,11 +167,25 @@ async def starter(event):
         tid = find_team(pid, teams)
         tid.statuspay = True
     elif re.match(r'^لیست اطلاعات$', event.raw_text):
-        s = ''
-        for x, team in enumerate(teams):
-            s += team.__str__() + '\n'
-        await bot.send_message(1794704608, s)
-        await bot.send_message(309233926, s)
+        lc = len(teams)
+        c = 8
+        try:
+            for i in range(lc // c + 1):
+                await event.respond('\n'.join([x.__str__() for x in teams[c*i: c*(i+1) if c*(i+1) <= lc else lc]]))
+        except telethon.errors.rpcerrorlist.FloodWaitError:
+            await event.reply('تلاش ناموفق، دوباره امتحان کنید')
+        except telethon.errors.FloodError:
+            await event.reply('تلاش ناموفق، دوباره امتحان کنید')
+    elif re.match(r'^send[ ]*message', event.raw_text):
+        strs = event.raw_text.split('\n')
+        msg = ''
+        for s in strs[1:]:
+            msg += s + '\n'
+        all_chatid = [int(x.chatid) for x in players]
+        for ac in all_chatid:
+            await bot.send_message(ac, msg)
+        # await bot.send_message(1794704608, s)
+        # await bot.send_message(309233926, s)
 
 
 @bot.on(events.NewMessage(pattern='مدیریت تیم🎪'))
