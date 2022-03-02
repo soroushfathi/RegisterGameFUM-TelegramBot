@@ -42,9 +42,9 @@ def get_players():
     x = requests.get(url)
     try:
         j = json.loads(str(x.text))
+        return j
     except json.decoder.JSONDecodeError:
         print("خطا در دریافت اطلاعات")
-    return j
 
 
 def accept_player(pid):
