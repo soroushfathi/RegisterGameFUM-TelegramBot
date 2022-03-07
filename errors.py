@@ -12,3 +12,7 @@ class MemberCountLimitError(Exception):
 
 class ActivateUserLoginError(Exception):
     pass
+
+
+class NotChannelParticipantError(Exception):
+    pass

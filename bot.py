@@ -22,7 +22,9 @@ from funcs import (
     messages, salescode20, salescode30,
     player_register, find_team, team_leader, is_registerd, is_activate, price_calc
 )
-from errors import LeaderLoginError, LoginedUserSigninError, MemberCountLimitError, ActivateUserLoginError
+from errors import (
+    LeaderLoginError, LoginedUserSigninError, MemberCountLimitError, ActivateUserLoginError, NotChannelParticipantError
+)
 from dbapi import get_teams, create_team, create_player, refetch_data, accept_player
 
 bot_token = os.environ["FUMGAME_TOKENBOT"]
@@ -33,6 +35,8 @@ payurl = 'https://www.fumgame.ir/api/request.php?chatid={}&price={}'
 
 teams = []
 players = []
+channelusers = await bot.get_participants(1076097778)
+channeluserschatid = [x.id for x in channelusers]
 refetch_data(teams, players, Team, Player)
 
 
@@ -41,7 +45,9 @@ async def callback_handler(event):
     sender = await event.get_sender()
     if event.data == b'signin':
         try:
-            if is_registerd(sender.id, players):
+            if sender.id not in channeluserschatid:
+                raise NotChannelParticipantError
+            elif is_registerd(sender.id, players):
                 raise LoginedUserSigninError
             async with bot.conversation(event.original_update.user_id) as conv:
                 await conv.send_message('👥 نام تیم خود را وارد کنید:')
@@ -77,6 +83,8 @@ async def callback_handler(event):
             await event.respond('⭕️تلاش ناموفق، دوباره تشکیل تیم رو بزن')
         except TypeError:
             await event.respond('⭕️تلاش ناموفق(تا پایان مرحله نرفتی)، ♻️دوباره تشکیل تیم رو بزن')
+        except NotChannelParticipantError:
+            await event.respond('⛔️برای ثبت نام ابتدا باید در کانال @fum_game عضو باشید')
     elif event.data == b'sos':
         async with bot.action(sender.id, 'typing'):
             await event.respond(messages['sos'], parse_mode='html')
@@ -93,7 +101,8 @@ async def callback_handler(event):
             accept_player(ap.chatid)
             mngbut = [[Button.text('مدیریت تیم🎪')]]
             await bot.send_message(pid, messages['accepted_player'].format(sender.first_name), buttons=mngbut)
-            await bot.edit_message(sender, event.original_update.msg_id, '✅\'{}\' با موفقیت در گروه عضو شد👍🏻'.format(ap.name))
+            await bot.edit_message(sender, event.original_update.msg_id,
+                                   '✅\'{}\' با موفقیت در گروه عضو شد👍🏻'.format(ap.name))
         else:
             await event.respond('⛔️همچین تیمی برای ثبت نام وجود ندارد')
     elif re.match(r'^ignore [0-9]{3,}', event.data.decode("utf-8")):
@@ -136,7 +145,9 @@ async def starter(event):
             elif is_activate(sender.id, players):
                 raise ActivateUserLoginError
             if team is not None:
-                await event.respond('خوش اومدی {}👋🏻، اطلاعات رو برای عضو شدن در تیم \"{}\" پر کن'.format(sender.first_name, team.name))
+                await event.respond(
+                    'خوش اومدی {}👋🏻، اطلاعات رو برای عضو شدن در تیم \"{}\" پر کن'.format(sender.first_name,
+                                                                                           team.name))
                 async with bot.conversation(sender.id) as conv:
                     cid, si, sf, phn, un, n, tmp = await player_register(conv, sender, False, bot)
                     newplayer = Player(team.code, cid, si, sf, phn, un, n)
@@ -147,7 +158,8 @@ async def starter(event):
                 buttons = [
                     [Button.inline('❌', 'ignore ' + str(sender.id)), Button.inline('✅', 'accept ' + str(sender.id))],
                 ]
-                await bot.send_message(team.code, messages['request_leader'].format(sender.first_name, sender.username), buttons=buttons)
+                await bot.send_message(team.code, messages['request_leader'].format(sender.first_name, sender.username),
+                                       buttons=buttons)
             else:
                 await event.respond('چنین تیمی برای عضویت یافت نشد🤷🏻‍♂️')
         except LeaderLoginError:
@@ -155,7 +167,8 @@ async def starter(event):
         except MemberCountLimitError:
             await event.respond('⛔️تعداد اعضای تیم تکمیل شده و نمیتونی وارد تیم شی')
         except LoginedUserSigninError:
-            await event.respond('⛔️شما قبلا در تیمی عضو شدی  یا منتظر تایید هستی و نمیتونی درخواست عضویت در گروه دیگه رو بدی')
+            await event.respond(
+                '⛔️شما قبلا در تیمی عضو شدی  یا منتظر تایید هستی و نمیتونی درخواست عضویت در گروه دیگه رو بدی')
         except ActivateUserLoginError:
             await event.respond('⛔️شما قبلا در تیمی عضو شدی و نمیتونی درخواست عضویت در گروه دیگه رو بدی')
         except AttributeError:
@@ -171,7 +184,8 @@ async def starter(event):
         c = 8
         try:
             for i in range(lc // c + 1):
-                await event.respond('\n'.join([x.__str__() for x in teams[c*i: c*(i+1) if c*(i+1) <= lc else lc]]))
+                await event.respond(
+                    '\n'.join([x.__str__() for x in teams[c * i: c * (i + 1) if c * (i + 1) <= lc else lc]]))
         except telethon.errors.rpcerrorlist.FloodWaitError:
             await event.reply('تلاش ناموفق، دوباره امتحان کنید')
         except telethon.errors.FloodError:
@@ -205,4 +219,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
