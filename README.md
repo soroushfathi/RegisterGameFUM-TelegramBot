@@ -5,6 +5,5 @@ then bot create link for leader of team, to invite thiere teammates into team,
 only teams with active payment can play game,
 telegram bot by python, payment with php
 
-```
-created by 💚
-```
+developed by 💚
+
